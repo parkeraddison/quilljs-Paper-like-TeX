@@ -1,0 +1,51 @@
+
+.ql-clipboard {
+    display: none;
+}
+
+.editor-container {
+    position: relative;
+    top: var(--titlebar-height);
+    margin: 0 0 20px 12px;
+    
+    height: calc(100vh - var(--titlebar-height) - 20px);
+
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+#editor {
+    font-family: var(--base-font);
+    font-size: var(--font-size);
+    font-weight: var(--font-weight);
+    color: var(--text-color);
+
+    font-variant-ligatures: none;
+
+    white-space: pre-wrap;
+}
+
+.ql-editor {
+    padding-bottom: 8em;
+    outline: none;
+}
+
+.ql-editor p {
+    margin: 0;
+}
+
+.ql-math {
+    color: var(--text-color);
+}
+
+.ql-syntax {
+    font-family: var(--mono-font);
+    font-size: 0.9em;
+    /* background-color: #23241f; */
+}
+
+hr {
+    border: none;
+    border-bottom: 1px solid var(--element-light-grey);
+    margin-bottom: 1em;
+}

@@ -1,3 +1,16 @@
+## Vim files
+
+# Swap
+*.swp
+
+# Temporary
+*~
+
+# Undo
+*.un~
+
+## Node.js files
+
 # Logs
 logs
 *.log

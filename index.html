@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Edit</title>
+
+    <link rel="stylesheet" href="./node_modules/katex/dist/katex.min.css">
+    <link rel="stylesheet" href="./node_modules/highlight.js/styles/monokai-sublime.css">
+
+    <link rel="stylesheet" href="./styles/window.css">
+    <link rel="stylesheet" href="./styles/editor.css">
+
+</head>
+
+<body>
+
+    <header id="titlebar">
+        <div id="drag-region">
+            <div id="window-title">
+                <span>THE FILENAME SHOULD BE HERE</span>
+            </div>
+            <div id="window-controls">
+                <div class="button" id="min-button">
+                    <span>&#xE921;</span>
+                </div>
+                <div class="button" id="max-button">
+                    <span>&#xE922;</span>
+                </div>
+                <div class="button" id="restore-button">
+                    <span>&#xE923;</span>
+                </div>
+                <div class="button" id="close-button">
+                    <span>&#xE8BB;</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="editor-container">
+        <div id="editor">
+            <p>
+                Some initial content, |$\sum_{i=1}^n f(x)
+            </p>
+        </div>
+    </div>
+
+</body>
+
+<script>
+
+    require("./scripts/renderer.js");
+
+    window.hljs = require("highlight.js");
+
+    window.hljs.configure({
+        languages: [],
+        tabReplace: "    ",
+        useBR: false,
+    });
+    window.katex = require("katex");
+
+    const Quill = require("quill");
+
+    const { MathEmbed, MathModule } = require("./scripts/math.js");
+
+    Quill.register(MathEmbed, true);
+    Quill.register("modules/math", MathModule);
+
+    let quill = new Quill("#editor", {
+        scrollingContainer: document.querySelector(".editor-container"),
+        modules: {
+            toolbar: ["code-block"],
+            math: true,
+            // syntax: true,
+        },
+    });
+
+    let editor = document.querySelector("#editor");
+    let qlEditor = editor.querySelector(".ql-editor");
+
+    // let m = document.createElement("PRE");
+    // let n = document.createElement("CODE");
+    //     // n.innerHTML = document.createElement("PRE");
+    //     n.innerHTML = `def
+    // cd
+    // this
+    //     foo.bar`;
+    // m.appendChild(n);
+    // qlEditor.appendChild(m);
+
+    quill.focus();
+
+    let mathElems;
+    let mathBlots;
+
+    function init() {
+
+        mathElems = document.querySelectorAll(".ql-math");
+        mathBlots = Array.prototype.map.call(mathElems, e => Quill.find(e));
+
+        quill.on("selection-change", update);
+    }
+
+    function update(range, oldRange) {
+        console.log("checking for selection next to math blot");
+
+        for (let blot of mathBlots) {
+            // console.log(range.index - blot.offset());
+            if (range.index - 1 == blot.offset()) {
+                console.log(blot);
+                derender(blot, range, oldRange);
+            }
+        }
+    }
+
+    function derender(blot, range, oldRange) {
+
+        this.id = Math.random()*1e16;
+
+        this.offset = blot.offset();
+        this.value = blot.value().math;
+
+        console.log(offset);
+        console.log(value);
+        console.log("derendering");
+
+        //! When the blot is deleted, we should remove its selection listener.
+        quill.deleteText(offset, 2);
+        quill.insertText(offset, `|$${value}$`);
+
+        // If moving from the left to right, set the cursor after the opening $
+        // if moving from right to left, set cursor to before the closing $
+        if (range.index > oldRange.index) {
+            quill.setSelection(offset + 2, 0);
+        } else {
+            quill.setSelection(offset + value.length + 2, 0);
+        }
+
+        // Add a selection change listener which will self destruct once the
+        // blot has been rendered, or if the opening dollar sign is deleted.
+        // Perhaps I can make use of Quill.off to accomplish this.
+        quill.on("selection-change", selectionHandler.bind(this));
+
+        console.log(`adding selection-change listener for ${this.id}`);
+    }
+
+    /*
+    Running into a *really* weird issue right now...
+    `quill.off("selection-change", selectionHandler)` doesn't seem to work
+
+    Every single time that `derender` creates the handler, it remains.
+    */
+
+    function selectionHandler(range, oldRange, source) {
+        // console.log(this.offset);
+        // console.log(this.value);
+        console.log(`selection-change on ${this.id}`);
+
+        if (source == "user") {
+            renderHandler(range, oldRange, this.offset, this.value);
+        }
+    }
+
+    function renderHandler(range, oldRange, offset, value) {
+
+
+        if (range.index <= offset
+            || range.index > offset + value.length + 2
+        ) {
+            console.log(`removing selection-change listener for ${this.id}`);
+            quill.off("selection-change", selectionHandler);
+
+
+
+            render();
+            init(); //! BAD
+
+            if (range.index == oldRange.index + 1) {
+                quill.setSelection(range.index - value.length - 1);
+            }
+        }
+    }
+
+    function render() {
+        console.log("rendering");
+
+        const mathSymbol = '\u200b';
+
+        const getTextWithMath = function (quill) {
+
+            return quill.getContents().filter(function (op) {
+                return typeof op.insert === 'string' || op.insert.math;
+            }).map(function (op) {
+                if (op.insert.math) {
+                    return mathSymbol;
+                }
+                return op.insert;
+            }).join('');
+        }
+
+        function renderMath(match, display = False) {
+
+            let embed = MathEmbed.create(match[1], display);
+
+            quill.deleteText(match.index, match[0].length);
+            quill.insertEmbed(match.index, embed, MathEmbed.value(embed));
+            quill.insertText(match.index + 1, mathSymbol);
+
+        }
+
+        specialChar = '|';
+        let special = specialChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        inlineMathPattern = new RegExp(String.raw`${special}\${1}(?!\$)([^${mathSymbol}]+?[^\\])\${1}`, 'g');
+
+        displayMathPattern = new RegExp(String.raw`${special}\${2}(?!\$)([^${mathSymbol}]+?[^\\])\${2}`, 'g');
+
+        let text = getTextWithMath(quill);
+
+        let inlineMatches = text.matchAll(inlineMathPattern);
+        let displayMatches = text.matchAll(displayMathPattern);
+
+        for (let match of inlineMatches) {
+            renderMath(match, false);
+        }
+        for (let match of displayMatches) {
+            renderMath(match, true);
+        }
+    }
+
+
+</script>
+
+</html>
